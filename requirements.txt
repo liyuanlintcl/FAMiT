@@ -1,0 +1,17 @@
+astor~=0.8.1
+graphviz
+langchain~=0.3.4
+langchain_openai
+ast_comments
+pandas~=2.2.3
+openpyxl
+scikit-learn~=1.5.2
+seaborn~=0.13.2
+matplotlib~=3.9.2
+requests~=2.32.3
+mkdocs~=1.6.1
+numpy~=1.26.4
+langgraph~=0.2.60
+pydantic~=2.9.2
+pyre-check
+fb-sapp

@@ -1,0 +1,74 @@
+As an expert in code analysis, your task is to analyze code snippets and check the reachability of paths given the provided code snippets(including an entry function) and variables to track.
+There are some key lines with comments such as "#trace xxx" in the entry function, you need to determine whether the path is reachable, that is, whether there is a set of parameters that can pass through all key lines during the execution of the entry function.
+Note that only when all key rows are reachable, can the path be considered reachable.
+Specifically, you need to analyze the entry function step by step from front to back, rules as follows:
+- you should understand the logical structure of the code, identify if conditional branches, loop structures and other logical controls.
+
+- If you encounter a conditional branch, you need to record the constraint conditions of all branches that contain key rows. If all branches have key rows, ignore the branch statement. As shown in the following example, two branches contain key lines, the constraint conditions are denoted as "condition_A or condition_B"
+if condition_A:
+    a = 1  #trace a
+else condition_B:
+    a = -1  #trace a
+elif:
+	...
+- When encountering a loop structure, if a key row appears within the loop body, record the condition for entering the loop body as a constraint, such as "condition_A"; If other key line appears after the end of the loop, it is necessary to analyze the changes in the loop condition values and record the conditions for exiting the loop as constraint conditions, such as "not condition_A or condition_B". The example is as follow:
+while condition_A:
+	a = 1 #trace a
+	if condition_B:
+		break
+b = a + 1 #trace b
+
+- When faced with recursive structures, if the key line appears after the end of the recursion, the condition for the end of the recursion is used as a constraint, such as "x>0".
+def func(x)
+    if x > 0:
+        return x
+    x += 1
+    func(x)
+
+def func_test(x):
+    func(x)
+    a = x #trace a
+
+- Analyze whether there is a constraint condition that cannot be met. Pay attention to the scope of constraint conditions. The constraint conditions that enter the if condition branch and loop body are applied before the if and loop body, and the constraint conditions that exit the loop body and recursive function are applied after the loop body and recursive function.
+
+- When analyzing whether a constraint condition cannot be met, careful consideration is needed, especially when judging whether a certain constraint condition cannot be met.
+For example:
+def a(x):
+    return x
+
+def b(x):
+    return not x
+
+def f():
+    x = True
+    if a(x) and b(not x):
+        return x # trace x
+In the above code, the constraint condition is 'a(x) and b(not x)', if you just consider the content of function 'a' and 'b', then the constraint condition will be 'x' and 'not x', which seems that can not be met.
+However, when consider the args of this function, the real constraint condition is 'x' and 'not (not x)', which is always reachable.
+
+Another example:
+class A:
+    cond = True
+
+def f(x):
+    a = A()
+    b = A()
+    a.cond = True
+    A.cond = False
+    if a.cond and not b.cond:
+        return x # trace x
+In the above code, you need to think about class parameters and class instance parameters. In the beginning, as class A has a class parameter 'cond' set to True, 'a = A()' and 'b = A()' make a.cond = True, b.cond = True, a.cond and b.cond share the parameters of the class.
+Second, 'a.cond = False' makes a.cond set to False, it is worth noting that at this stage instance 'a' of class 'A' has its own class instance parameter 'cond', rather than the previous class parameter 'cond'.
+Finally, 'A.cond = True' try to reset the class parameters, but it does not affect the class instance parameter a.cond, so a.cond is still False. But b.cond is still the class parameter, so b.cond is set to False, and the path is reachable.
+
+You should think step by step.
+After completing the analysis, you need to answer in the following example format:
+Path Reachable: "answer True for reachable, answer False for unreachable"
+Unresolvable Constraint: "If the path is unreachable, output the constraint that cannot be satisfied and why it cannot be satisfied"
+
+
+An example of the answer is as follows:
+{{
+    "Path Reachable": False,
+    "Unresolvable Constraint": "x>0 and x<0 cannot be satisfied simultaneously"
+}}

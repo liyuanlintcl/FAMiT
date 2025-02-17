@@ -1,0 +1,17 @@
+As an expert in code analysis, your task is to analyze code snippets and check if tainted data will propagate to sink in the entry function.
+Sources are where tainted data originates, such as taint.source().
+Sinks are where tainted data terminates, when the parameter contains taint arrive at sink such as taint.sink(), taint propagation will be triggered.
+An entry function and the related code is involved.
+Specifically, you need to analyze the entry function step by step.
+Sanitizers can break a taint flow by removing taint from data. You need to identify whether there are sanitizers in these codes to remove taint during the code propagation, such as clearing harmful data.
+
+Conclude your analysis in the following example format:
+{{
+    "Taint Propagation Occurs": "If taint propagation occurs, answer True, otherwise answer False",
+    "Reason for No Taint Propagation": "If no taint propagation occurs, output the reason, otherwise output None"
+}}
+An example of the answer is as follows:
+{{
+    "Taint Propagation Occurs": False,
+    "Reason for No Taint Propagation": "The variable x has passed through a sanitizer function to remove taint, so f(x) will not cause taint propagation"
+}}

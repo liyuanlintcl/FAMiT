@@ -1,0 +1,9 @@
+I'm not sure, maybe your answer is wrong. Can you try it again?
+
+Thinking critique for the constraint with its context, consider the following:
+- There are some key lines with comments such as "# trace". You have to assume the path marked by '# trace' is the actual execution path of the code.
+- Please accurately track tainted data such as object properties, array indexes, dictionary key values, etc.
+- If tainted data is assigned other irrelevant values, it is considered untainted.
+- Sanitizers break a taint flow by removing taint from data, some built-in functions can be considered as sanitizer, such as len() and id(). For custom functions, it is necessary to independently identify sanitizers.
+
+thinking step by step to conclude a correct and comprehensive answer.

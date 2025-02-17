@@ -1,0 +1,11 @@
+analyze/*
+
+.idea/*
+
+result/log/*
+
+result/bench_result/*
+
+*.pyc
+
+bench/pysa-runs/*

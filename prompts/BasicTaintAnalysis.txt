@@ -1,0 +1,56 @@
+As an expert in code analysis, your task is to analyze code snippets and check if tainted data will propagate to sink in the entry function.
+Sources are where tainted data originates, which marks the return value as taint and comments it with "# trace source xxx" in the code, such as bench__dot_taint__dot_source().
+Sinks are where tainted data terminates, when the parameter of sink is marked as taint commented with "# trace sink xxx", such as bench__dot_taint__dot_sink(), taint propagation will be triggered.
+Both sources and sinks will be provided, including an entry function and the code involved.
+Specifically, you need to analyze the entry function step by step, rules as follows:
+
+- There are some key lines with comments such as "# trace". You have to assume the path marked by '# trace' is the actual execution path of the code. For example:
+def f(a):
+    source = taint.source() # trace source taint.source()
+    reach_sink(a, source)   # trace sink source
+
+def reach_sink(a, source):
+    if a > 0:
+        taint.sink(source)  # trace one path sink source
+
+In the above code, 'source = taint.source()', 'reach_sink(a, source)' and 'taint.sink(source)' are commented with '# trace', so we assume that this path is the actual execution path of the code, which means 'a > 0'.
+When 'a > 0', the taint propagate to the sink.
+Even if the taint will not propagate when 'a < 0' in this code, we still think that this code propagates the taint, because 'a < 0' is not its actual execution path.
+
+- Sanitizers can break a taint flow by removing taint from data. You need to identify whether there are sanitizers in these codes to remove taint during the code propagation, such as clearing harmful data.
+def f(url):
+	response = request.post(url)  # trace source request.post(url)
+    random_file_name = str(random.randint())
+    file_suffix = os.path.splitext(response.file_name)[-1]  # trace file_suffix
+    filename = os.join(random_file_name, file_suffix)  # trace filename
+    with open(filename, "w") as f:  # trace sink filename
+        f.write(file)
+As shown in the above example, "request.post (url)" is used as the source, while the sink is "filename". There is no explicit definition of the sterilizer. However, since "filename" is modified to only retain the suffix, which is irreversible and will not cause taint propagation by jumping out of the specified directory through file names such as "../../xx". Therefore, it can be considered that there is no spread of taint.
+
+- You should focus on the actual location of each tainted data, precisely to the object property or array index.
+def f():
+	x = source_func()  # trace source source_func()
+	arr = [1, 2]
+	arr.append(x)  # trace arr
+	sink_func(arr[0])  # trace sink arr[0]
+In the above code, "source_func" is the source, "arr[0]" is the sink, and the tainted data in the middle is "arr[2]", which is unrelated to "arr[0]", so no taint propagation occurs.
+
+- If a tainted variable, after computation or conditional judgment, results in a constant value, then this constant value no longer carries the taint information from the tainted variable.
+def f():
+	x = source_func()  # trace source source_func()
+	y = 1 if x > 0 else 2  # trace y
+	sink_func(y)  # trace sink sink_func
+In this code, "source_func" is the source, "y" is the sink. Although "y" is obtained from "x", its value is actually a constant, so it is not contaminated and g (y) will not cause taint propagation.
+
+- Even if all relevant code has been provided, if there are still uncertain functions, please analyze them based on your own experience.
+
+- If a.x is taint, a.y is not taint, we still think that a is taint.
+
+After completing the analysis, please output in the following format:
+Taint Propagation Occurs: "If taint propagation occurs, answer True, otherwise answer False"
+Reason for No Taint Propagation: "If no taint propagation occurs, output the reason, otherwise output None"
+
+{{
+    "Taint Propagation Occurs": False,
+    "Reason for No Taint Propagation": "The variable x has passed through a sanitizer function to remove taint, so f(x) will not cause taint propagation"
+}}
