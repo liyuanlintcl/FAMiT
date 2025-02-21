@@ -3,9 +3,12 @@ import json
 import logging
 import os
 
+import ast_comments
+
 from assistant.path_analysis_assistant import PathAnalysisAssistant
 from assistant.basic_langchain_assistant import BasicAssistant
 from assistant.taint_analysis_assistant import TaintAnalysisAssistant
+from tools.code_rewrite import FunctionRename
 from tools.codebase import rename_function
 
 logger = logging.getLogger("FAMiT")
@@ -15,7 +18,7 @@ class SimpleAssistant(TaintAnalysisAssistant, PathAnalysisAssistant):
     def __init__(self, llm_model, save_path, o1=True):
         self.result = None
         self.save_path = save_path
-        prompt_paths = ["./prompts/SimpleTaintAnalysis.txt"]
+        prompt_paths = ["./prompts/o1TaintAnalysis.txt"]
         BasicAssistant.__init__(self, llm_model, prompt_paths, o1=o1)
 
     def save(self):
@@ -30,10 +33,17 @@ class SimpleAssistant(TaintAnalysisAssistant, PathAnalysisAssistant):
         except (FileNotFoundError, json.decoder.JSONDecodeError):
             self.result = {}
 
-    def analyze(self, issue_index):
+    def analyze(self, issue_index, path_index):
         self.clean_messages()
         func_name = self.code_base.error_reports[issue_index]
         function_name_split = func_name.split('.')
+        trace_items = self.code_base.get_path_trace_items(func_name, path_index)
+
+        if func_name not in self.result:
+            self.result[func_name] = []
+        if len(self.result[func_name]) <= path_index:
+            self.result[func_name].append({})
+
         for i in range(len(function_name_split) - 1, 0, -1):
             file_name = os.path.join(self.code_base.work_dir, "/".join(function_name_split[:i]) + ".py")
             if os.path.isfile(file_name):
@@ -51,6 +61,9 @@ class SimpleAssistant(TaintAnalysisAssistant, PathAnalysisAssistant):
                         continue
                     break
 
+        parsed_ast = ast.parse(source)
+        parsed_ast = FunctionRename(trace_items=trace_items).visit(parsed_ast)
+        source = ast_comments.unparse(parsed_ast)
         taint_analysis = self.taint_analysis(func_name, source)
         try:
             taint, taint_false_reason = self.check_result(taint_analysis, self.answer_again,
@@ -59,8 +72,9 @@ class SimpleAssistant(TaintAnalysisAssistant, PathAnalysisAssistant):
             logger.exception(e)
             taint, taint_false_reason = None, None
 
-        self.result[func_name] = {
+        self.result[func_name][path_index] = {
             'issue_index': issue_index,
+            'path_index': path_index,
             'code': source,
             'taint': taint,
             'taint_false_reason': taint_false_reason,
@@ -70,9 +84,9 @@ class SimpleAssistant(TaintAnalysisAssistant, PathAnalysisAssistant):
     def analysis_all(self, begin_issue=0, no_repeat=True):
         for issue_index in range(begin_issue, len(self.code_base.error_reports)):
             func_name = self.code_base.error_reports[issue_index]
-            if func_name in self.result and no_repeat:
+            if rename_function(func_name) in self.result and no_repeat:
                 continue
             path_trace_items = self.code_base.traces[func_name]
             for path_index in range(len(path_trace_items)):
-                logger.info(f"issue_index: {issue_index}")
-                self.analyze(issue_index)
+                logger.info(f"issue_index: {issue_index}, path_index: {path_index}")
+                self.analyze(issue_index, path_index)
